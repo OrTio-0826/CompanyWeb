@@ -1,8 +1,17 @@
 import "./App.css";
+
 import Footer from "./Components/Footer/Footer";
 import Navbar from "./Components/Navbar/Navbar";
 
-import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Outlet,
+  Navigate,
+} from "react-router-dom";
+import axios from "axios";
+
 import Mainpage from "./Pages/MainPage/Mainpage";
 import Services from "./Pages/Services/Services";
 import Board from "./Pages/Board/Board";
@@ -10,12 +19,86 @@ import Contact from "./Pages/Contact/Contact";
 import Leadership from "./Pages/Leadership/Leadership";
 import About from "./Pages/About/About";
 
+import AdminLogin from "./Pages/Admin/AdminLogin";
+import AdminPosts from "./Pages/Admin/AdminPosts";
+import AdminCreatePost from "./Pages/Admin/AdminCreatePost";
+import AdminEditPost from "./Pages/Admin/AdminEditPost";
+import AdminContacts from "./Pages/Admin/AdminContacts";
+import AdminNavbar from "./Components/AdminNavbar/AdminNavbar";
+
+function AuthRedirectRoute() {
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
+
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const response = await axios.post(
+          "http://localhost:3000/api/auth/verify-token",
+          {},
+          { withCredentials: true },
+        );
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.log("토큰 인증 실패: ", error);
+        setIsAuthenticated(false);
+      }
+    };
+    verifyToken();
+  }, []);
+
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  return isAuthenticated ? <Navigate to="/admin/posts" replace /> : <Outlet />;
+}
+function ProtectedRoute() {
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const response = await axios.post(
+          "http://localhost:3000/api/auth/verify-token",
+          {},
+          { withCredentials: true },
+        );
+        setIsAuthenticated(response.data.isValid);
+        setUser(response.data.user);
+      } catch (error) {
+        console.log("토큰 인증 실패: ", error);
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    };
+    verifyToken();
+  }, []);
+
+  if (isAuthenticated === null) {
+    return null;
+  }
+
+  return isAuthenticated ? (
+    <Outlet context={{ user }} />
+  ) : (
+    <Navigate to="/admin" replace />
+  );
+} 
 function Layout() {
   return (
     <>
       <Navbar />
       <Outlet />
       <Footer />
+    </>
+  );
+}
+function AdminLayout() {
+  return (
+    <>
+      <AdminNavbar />
+      <Outlet />
     </>
   );
 }
@@ -38,16 +121,48 @@ const router = createBrowserRouter([
         element: <Leadership />,
       },
       {
-        path: "/contact",
-        element: <Contact />,
-      },
-      {
         path: "/board",
         element: <Board />,
       },
       {
         path: "/our-services",
         element: <Services />,
+      },
+      {
+        path: "/contact",
+        element: <Contact />,
+      },
+    ],
+  },
+  {
+    path: "/admin",
+    element: <AuthRedirectRoute />,
+    children: [{ index: true, element: <AdminLogin /> }],
+  },
+  {
+    path: "/admin",
+    element: <ProtectedRoute />,
+    children: [
+      {
+        element: <AdminLayout />,
+        children: [
+          {
+            path: "posts",
+            element: <AdminPosts />,
+          },
+          {
+            path: "create-post",
+            element: <AdminCreatePost />,
+          },
+          {
+            path: "edit-post/:id",
+            element: <AdminEditPost />,
+          },
+          {
+            path: "contacts",
+            element: <AdminContacts />,
+          },
+        ],
       },
     ],
   },
